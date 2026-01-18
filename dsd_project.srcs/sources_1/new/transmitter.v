@@ -1,79 +1,91 @@
-`timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 11/19/2025 02:40:38 PM
-// Design Name: 
-// Module Name: transmitter
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
-
 module transmitter(
-input clk,
-input [7:0] data,
-input transmit,
-input reset,
-output TxD
+    input clk,
+    input [7:0] data,
+    input transmit,
+    input reset,
+    output reg TxD
     );
-   reg [3:0] bit_counter; 
-   reg [13:0] baudrate_counter; // counter= clock/ baudrate
-   reg [9:0] shiftright_register; //10 bits which will be transmitted using UART protocol to zedboard
-   reg state, next_state; // where state is idle mode and next_state is transmitting mode
-   reg shift; // conversion of parallel data to serial stream and vice versa
-   reg load; //loads the data bus into the shift register
-   reg clear; //reset the counter
-   
-   //transmission
-   always @(posedge clk)
-   begin
-   if(reset)
-   begin
-   state<=0;
-   bit_counter<=0;
-   baudrate_counter<=0;
-   end
-   else begin
-   baudrate_counter<=baudrate_counter+1;
-   if (baudrate_conter==10415)
-   begin
-   state<=next_state;
-   baudrate_counter<=0;
-   if(load)
-   shiftright_register<={1'b1,data,1'b0};
-   if(clear)
-   bit_counter<=0;
-   if (shift)
-   shiftright_register<=shiftright_register>>1; // start shifg=ting of data,>> represents shifting
-   bit_counter<=bit_counter+1;
-   end
-   end
-   end
-   
-   //Mealy FSM
-   always @(posedge clk)
-   begin
-   load<=0;
-   shift<=0;
-   clear<=0;
-   TxD<=1; // 1 means no transmission in progress
-   
-   case(state)
-   0: begin
-   if (transmit)
-   next_state<=1;
-   load<=1;
-   
-   
+
+    reg [3:0] bit_counter;    
+    reg [13:0] baudrate_counter; 
+    reg [9:0] right_shift_register; 
+    reg state, next_state;    
+    reg shift;               
+    reg load;                 
+    reg clear;               
+
+    parameter IDLE = 0;
+    parameter TRANSMITTING = 1;
+
+    // Sequential Logic (Counters and State Transitions)
+    always @(posedge clk) begin
+        if (reset) begin
+            state <= IDLE;
+            bit_counter <= 0;
+            baudrate_counter <= 0;
+        end
+        else begin
+            baudrate_counter <= baudrate_counter + 1;
+          
+            if (baudrate_counter == 10415) begin
+                state <= next_state; 
+                baudrate_counter <= 0;
+                
+                if (load) begin
+                   
+                    right_shift_register <= {1'b1, data, 1'b0}; 
+                end
+                
+                if (clear) begin
+                    bit_counter <= 0;
+                end
+                
+                if (shift) begin
+                  
+                    right_shift_register <= {1'b1, right_shift_register[9:1]};
+                    bit_counter <= bit_counter + 1;
+                end
+            end
+        end
+    end
+
+    // Combinational Logic (State Machine & Output)
+    always @(posedge clk) begin
+       
+        load = 0;
+        shift = 0;
+        clear = 0;
+        TxD = 1;
+        
+        case (state)
+            IDLE: begin
+                TxD = 1;
+                if (transmit) begin
+                    next_state = TRANSMITTING;
+                    load = 1;
+                    shift = 0;
+                    clear = 0;
+                end
+                else begin
+                    next_state = IDLE;
+                    TxD = 1;
+                end
+            end
+
+            TRANSMITTING: begin
+                TxD = right_shift_register[0];
+                if (bit_counter == 10) begin
+                    next_state = IDLE;
+                    clear = 1;
+                end
+                else begin
+                    next_state = TRANSMITTING;
+                    shift = 1;
+                end
+            end
+            
+            default: next_state = IDLE;
+        endcase
+    end
+
 endmodule
