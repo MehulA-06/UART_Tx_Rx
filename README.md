@@ -30,4 +30,3 @@ Features
 5.Modular and reusable design suitable for SoC/FPGA systems
 
 
-![FPGA Implementation]("C:\Users\gites\Downloads\FPGA IMPL.jpeg")
